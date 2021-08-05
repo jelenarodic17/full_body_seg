@@ -308,3 +308,4 @@ def median_filter(image):
 
 if __name__=='__main__':
     train_UNet11()
+    #test_UNet11()
