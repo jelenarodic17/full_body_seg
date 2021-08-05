@@ -195,10 +195,7 @@ def train_model(model, criterion, optimizer, loaders, num_epochs=10):
                         loss_sum_val.append(float(loss))
 
 
-            # deep copy the model, uzmi najbolji model sa validacije
-            if phase == 'val' and loss < best_bce:
-                best_bce = loss
-                best_model_wts = copy.deepcopy(model.state_dict())
+
         print()
         loss_train = np.array(loss_sum_train).mean()
         loss_train_list.append(loss_train)
@@ -206,6 +203,10 @@ def train_model(model, criterion, optimizer, loaders, num_epochs=10):
         loss_val_list.append(loss_val)
         print('train loss: ' + str(loss_train) + ' val loss: ' + str(loss_val))
 
+        # deep copy the model, uzmi najbolji model sa validacije
+        if loss_val < best_bce:
+            best_bce = loss_val
+            best_model_wts = copy.deepcopy(model.state_dict())
 
     time_elapsed = time.time() - start_time
     print(f'Trening trajao {(time_elapsed // 60):.0f}m {time_elapsed % 60:.0f}s')
@@ -328,5 +329,5 @@ def median_filter(image):
 
 
 if __name__=='__main__':
-    #train_UNet11()
-    test_UNet11()
+    train_UNet11()
+    #test_UNet11()
