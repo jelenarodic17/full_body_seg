@@ -253,12 +253,23 @@ def train_UNet11():
     plt.legend(['val loss','train loss'])
     plt.show()
 
+def iou_loss(tensor1,tensor2):
+    maximum = torch.max(tensor1.flatten())
+    if maximum>1:
+        print("verovatnoca nije dobra:",maximum)
+    intersection = tensor1 * tensor2
+    union = torch.clamp((tensor1+tensor2),min=0,max=1)
+    intersection = torch.sum(torch.flatten(intersection,1),dim=1)
+    union = torch.sum(torch.flatten(union,1),dim=1)
+    return torch.mean(intersection/union)
+
 def loss_on_test(model,loader):
     criterion = BCEWithLogitsLoss()
     with torch.no_grad():
         loss = 0
         k = 0
         loss_vec = list()
+        iou_interpret = list()
         for batch in loader:
             images, masks = batch
             images = images.to(device)
@@ -268,15 +279,19 @@ def loss_on_test(model,loader):
             else:
                 dim = len(images)
             masks = masks.reshape((dim, IMAGE_HEIGHT, IMAGE_WIDTH))
-            batch_preds = model(images)
+            batch_preds = torch.sigmoid(model(images))
             batch_preds = batch_preds.detach().reshape((dim, IMAGE_HEIGHT, IMAGE_WIDTH))
-            loss_bce = criterion(batch_preds, masks)
-            loss_vec.append(float(loss_bce))
+            #loss_bce = criterion(batch_preds, masks)
+            #loss_vec.append(float(loss_bce))
+
+            iou_interpret.append(iou_loss(batch_preds, masks).to('cpu'))
             k = k+1
             print(k)
-        loss_test = np.array(loss_vec).mean()
+        #loss_test = np.array(loss_vec).mean()
+        iou_test = np.mean(iou_interpret)
         print("--------------------")
-        print('loss test je '+str(loss_test))
+        #print('loss test je '+str(loss_test))
+        print('iou na testu je ' + str(iou_test))
 
 def test_UNet11():
     # TESTIRANJE I PRIKAZ REZULTATA
@@ -302,7 +317,7 @@ def test_UNet11():
         else:
             dim = len(images)
         masks = masks.reshape((dim, IMAGE_HEIGHT, IMAGE_WIDTH))
-        batch_preds = model(images)
+        batch_preds = torch.sigmoid(model(images))
         batch_preds = batch_preds.detach()
         for i in range(BATCH_SIZE):
             axs[3].imshow(batch_preds[i].cpu().squeeze(0).numpy(), cmap='gray')
