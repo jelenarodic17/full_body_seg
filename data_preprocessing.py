@@ -244,7 +244,7 @@ def train_UNet11():
 
     # Cuvanje obucenog modela
     torch.save(model.state_dict(),
-               os.path.normpath(r'C:\\Users\psiml\PycharmProjects\\ternaus3.pth'))
+               os.path.normpath(r'C:\\Users\psiml\PycharmProjects\\ternaus1.pth'))
 
     plt.plot(np.arange(num_epochs),np.array(loss_val_list))
     plt.plot(np.arange(num_epochs),np.array(loss_train_list))
@@ -257,7 +257,6 @@ def loss_on_test(model,loader):
     criterion = BCEWithLogitsLoss()
     with torch.no_grad():
         loss = 0
-        criterion_bce = torch.nn.BCEWithLogitsLoss()
         k = 0
         loss_vec = list()
         for batch in loader:
@@ -269,7 +268,7 @@ def loss_on_test(model,loader):
             else:
                 dim = len(images)
             masks = masks.reshape((dim, IMAGE_HEIGHT, IMAGE_WIDTH))
-            batch_preds = torch.sigmoid(model(images))
+            batch_preds = model(images)
             batch_preds = batch_preds.detach().reshape((dim, IMAGE_HEIGHT, IMAGE_WIDTH))
             loss_bce = criterion(batch_preds, masks)
             loss_vec.append(float(loss_bce))
@@ -283,7 +282,7 @@ def test_UNet11():
     # TESTIRANJE I PRIKAZ REZULTATA
     # Prebacujemo model u mod za evaluaciju, da ne racuna gradijente
     model = UNet11()
-    model.load_state_dict(torch.load(os.path.normpath(r'C:\Users\psiml\PycharmProjects\\ternaus2.pth')))
+    model.load_state_dict(torch.load(os.path.normpath(r'C:\Users\psiml\PycharmProjects\\ternaus3.pth')))
     model = model.to(device)
     model.eval()
 
@@ -303,7 +302,7 @@ def test_UNet11():
         else:
             dim = len(images)
         masks = masks.reshape((dim, IMAGE_HEIGHT, IMAGE_WIDTH))
-        batch_preds = torch.sigmoid(model(images))
+        batch_preds = model(images)
         batch_preds = batch_preds.detach()
         for i in range(BATCH_SIZE):
             axs[3].imshow(batch_preds[i].cpu().squeeze(0).numpy(), cmap='gray')
@@ -329,5 +328,5 @@ def median_filter(image):
 
 
 if __name__=='__main__':
-    train_UNet11()
-    #test_UNet11()
+    #train_UNet11()
+    test_UNet11()
