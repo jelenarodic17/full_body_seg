@@ -1,3 +1,5 @@
+# da li vidis ovo
+
 from pathlib import Path
 import torch
 import torchvision
