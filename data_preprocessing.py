@@ -152,11 +152,14 @@ def train_model(model, criterion, optimizer, loaders, num_epochs=10):
 
     best_model_wts = copy.deepcopy(model.state_dict())  # state_dict je recnik svih tezina zgodno za cuvanje
     best_bce = 1000.0
-
+    loss_train_list = list()
+    loss_val_list = list()
 
     for epoch in range(num_epochs):
         print(f'Epoch {epoch}/{num_epochs - 1}')
         print('-' * 10)
+        loss_sum_train = list()
+        loss_sum_val = list()
 
         # Epoha ima trening i validacionu fazu
         for phase in ['train', 'val']:
@@ -187,22 +190,31 @@ def train_model(model, criterion, optimizer, loaders, num_epochs=10):
                     if phase == 'train':
                         loss.backward()
                         optimizer.step()
+                        loss_sum_train.append(float(loss))
+                    if phase=='val':
+                        loss_sum_val.append(float(loss))
 
-            loss_on_dataset(model, val_loader, epoch)
+
             # deep copy the model, uzmi najbolji model sa validacije
             if phase == 'val' and loss < best_bce:
                 best_bce = loss
                 best_model_wts = copy.deepcopy(model.state_dict())
-
         print()
+        loss_train = np.array(loss_sum_train).mean()
+        loss_train_list.append(loss_train)
+        loss_val = np.array(loss_sum_val).mean()
+        loss_val_list.append(loss_val)
+        print('train loss: ' + str(loss_train) + ' val loss: ' + str(loss_val))
+
 
     time_elapsed = time.time() - start_time
-    print(f'Training complete in {(time_elapsed // 60):.0f}m {time_elapsed % 60:.0f}s')
-    print('Best val bce: {best_bce:4f}')
+    print(f'Trening trajao {(time_elapsed // 60):.0f}m {time_elapsed % 60:.0f}s')
+    print('Best val loss: '+str(best_bce))
 
     # ucitavamo najbolji model u memoriju
     model.load_state_dict(best_model_wts)
-    return model
+
+    return model, loss_train_list, loss_val_list
 
 def train_UNet11():
 
@@ -225,19 +237,28 @@ def train_UNet11():
     
     criterion = BCEWithLogitsLoss()
     # TRENIRANJE MODELA
-    train_model(model, criterion, optimizer, loaders, num_epochs=10)
+    num_epochs = 10
+    model,loss_train_list, loss_val_list = train_model(model, criterion, optimizer, loaders, num_epochs=num_epochs)
 
 
     # Cuvanje obucenog modela
     torch.save(model.state_dict(),
-               os.path.normpath(r'C:\\Users\psiml\PycharmProjects\\ternaus2.pth'))
+               os.path.normpath(r'C:\\Users\psiml\PycharmProjects\\ternaus3.pth'))
 
-def loss_on_dataset(model,loader, epoch):
+    plt.plot(np.arange(num_epochs),np.array(loss_val_list))
+    plt.plot(np.arange(num_epochs),np.array(loss_train_list))
+    plt.xlabel('redni broj epohe')
+    plt.ylabel('loss')
+    plt.legend(['val loss','train loss'])
+    plt.show()
+
+def loss_on_test(model,loader):
     criterion = BCEWithLogitsLoss()
     with torch.no_grad():
         loss = 0
         criterion_bce = torch.nn.BCEWithLogitsLoss()
         k = 0
+        loss_vec = list()
         for batch in loader:
             images, masks = batch
             images = images.to(device)
@@ -250,24 +271,24 @@ def loss_on_dataset(model,loader, epoch):
             batch_preds = torch.sigmoid(model(images))
             batch_preds = batch_preds.detach().reshape((dim, IMAGE_HEIGHT, IMAGE_WIDTH))
             loss_bce = criterion(batch_preds, masks)
-            loss += loss_bce
+            loss_vec.append(float(loss_bce))
             k = k+1
             print(k)
-        epoch_loss = loss / len(loader)
+        loss_test = np.array(loss_vec).mean()
         print("--------------------")
-        print('loss in epoch '+str(epoch)+'je'+str(epoch_loss))
+        print('loss test je '+str(loss_test))
 
 def test_UNet11():
     # TESTIRANJE I PRIKAZ REZULTATA
     # Prebacujemo model u mod za evaluaciju, da ne racuna gradijente
     model = UNet11()
-    model.load_state_dict(torch.load(os.path.normpath(r'C:\Users\psiml\PycharmProjects\\ternaus.pth')))
+    model.load_state_dict(torch.load(os.path.normpath(r'C:\Users\psiml\PycharmProjects\\ternaus2.pth')))
     model = model.to(device)
     model.eval()
 
     # Racunanje greske na test skupu
     print(f'Broj slika u test skupu: {len(test_loader) * BATCH_SIZE} images')
-    loss_on_dataset(model,test_loader, 1)
+    loss_on_test(model,test_loader)
 
     fig, axs = plt.subplots(2, 2, figsize=(15, 15))
     axs = axs.ravel()
@@ -284,10 +305,10 @@ def test_UNet11():
         batch_preds = torch.sigmoid(model(images))
         batch_preds = batch_preds.detach()
         for i in range(BATCH_SIZE):
-            axs[3].imshow(batch_preds[i].squeeze(0).numpy(), cmap='gray')
-            axs[0].imshow(images[i].permute(1, 2, 0).numpy())
-            axs[1].imshow(masks[i].numpy(), cmap='gray')
-            axs[2].imshow(implement_mask(batch_preds[i].squeeze(0), images[i]).permute(1, 2, 0))
+            axs[3].imshow(batch_preds[i].cpu().squeeze(0).numpy(), cmap='gray')
+            axs[0].imshow(images[i].cpu().permute(1, 2, 0).numpy())
+            axs[1].imshow(masks[i].cpu().numpy(), cmap='gray')
+            axs[2].imshow(implement_mask(batch_preds[i].cpu().squeeze(0), images[i].cpu()).permute(1, 2, 0))
             plt.savefig(
                 r'C:\\Users\psiml\PycharmProjects\psiml_body_segmentation\Rezultati\Rezultati 2\\rez' + str(i) + str(
                     j) + '.png')
@@ -307,5 +328,5 @@ def median_filter(image):
 
 
 if __name__=='__main__':
-    train_UNet11()
-    #test_UNet11()
+    #train_UNet11()
+    test_UNet11()
