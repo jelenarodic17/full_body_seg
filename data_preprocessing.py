@@ -152,8 +152,7 @@ def train_model(model, criterion, optimizer, loaders, num_epochs=10):
 
     best_model_wts = copy.deepcopy(model.state_dict())  # state_dict je recnik svih tezina zgodno za cuvanje
     best_bce = 1000.0
-    # Tip recnika kome mozes reci i recnik['novo'] = novo_value, iako kod obicnog to ne moze ako 'novo' ne postoji
-    metrics = defaultdict(list)
+
 
     for epoch in range(num_epochs):
         print(f'Epoch {epoch}/{num_epochs - 1}')
@@ -189,7 +188,7 @@ def train_model(model, criterion, optimizer, loaders, num_epochs=10):
                         loss.backward()
                         optimizer.step()
 
-
+            loss_on_dataset(model, val_loader, epoch)
             # deep copy the model, uzmi najbolji model sa validacije
             if phase == 'val' and loss < best_bce:
                 best_bce = loss
@@ -203,10 +202,9 @@ def train_model(model, criterion, optimizer, loaders, num_epochs=10):
 
     # ucitavamo najbolji model u memoriju
     model.load_state_dict(best_model_wts)
-    return model, metrics
+    return model
 
-"""
-if __name__ == '__main__':
+def train_UNet11():
 
     loaders = {"train": train_loader, "val": val_loader}
 
@@ -234,40 +232,68 @@ if __name__ == '__main__':
     torch.save(model.state_dict(),
                os.path.normpath(r'C:\\Users\psiml\PycharmProjects\\ternaus2.pth'))
 
+def loss_on_dataset(model,loader, epoch):
+    criterion = BCEWithLogitsLoss()
+    with torch.no_grad():
+        loss = 0
+        criterion_bce = torch.nn.BCEWithLogitsLoss()
+        k = 0
+        for batch in loader:
+            images, masks = batch
+            images = images.to(device)
+            masks = masks.to(device)
+            if len(images)==BATCH_SIZE:
+                dim = BATCH_SIZE
+            else:
+                dim = len(images)
+            masks = masks.reshape((dim, IMAGE_HEIGHT, IMAGE_WIDTH))
+            batch_preds = torch.sigmoid(model(images))
+            batch_preds = batch_preds.detach().reshape((dim, IMAGE_HEIGHT, IMAGE_WIDTH))
+            loss_bce = criterion(batch_preds, masks)
+            loss += loss_bce
+            k = k+1
+            print(k)
+        epoch_loss = loss / len(loader)
+        print("--------------------")
+        print('loss in epoch '+str(epoch)+'je'+str(epoch_loss))
+
+def test_UNet11():
     # TESTIRANJE I PRIKAZ REZULTATA
     # Prebacujemo model u mod za evaluaciju, da ne racuna gradijente
+    model = UNet11()
+    model.load_state_dict(torch.load(os.path.normpath(r'C:\Users\psiml\PycharmProjects\\ternaus.pth')))
+    model = model.to(device)
     model.eval()
+
+    # Racunanje greske na test skupu
+    print(f'Broj slika u test skupu: {len(test_loader) * BATCH_SIZE} images')
+    loss_on_dataset(model,test_loader, 1)
+
     fig, axs = plt.subplots(2, 2, figsize=(15, 15))
     axs = axs.ravel()
-
     j = 0
     for batch in test_loader:
-        images, mask = batch
+        images, masks = batch
+        images = images.to(device)
+        masks = masks.to(device)
+        if len(images) == BATCH_SIZE:
+            dim = BATCH_SIZE
+        else:
+            dim = len(images)
+        masks = masks.reshape((dim, IMAGE_HEIGHT, IMAGE_WIDTH))
         batch_preds = torch.sigmoid(model(images))
         batch_preds = batch_preds.detach()
         for i in range(BATCH_SIZE):
             axs[3].imshow(batch_preds[i].squeeze(0).numpy(), cmap='gray')
             axs[0].imshow(images[i].permute(1, 2, 0).numpy())
-            axs[1].imshow(mask[i].numpy(), cmap='gray')
+            axs[1].imshow(masks[i].numpy(), cmap='gray')
             axs[2].imshow(implement_mask(batch_preds[i].squeeze(0), images[i]).permute(1, 2, 0))
-            plt.savefig(r'C:\\Users\psiml\PycharmProjects\psiml_body_segmentation\Rezultati\Rezultati 2\\rez' + str(i) + str(j) + '.png')
+            plt.savefig(
+                r'C:\\Users\psiml\PycharmProjects\psiml_body_segmentation\Rezultati\Rezultati 2\\rez' + str(i) + str(
+                    j) + '.png')
         j = j + 1
 
-    # Racunanje greske na test skupu
-    with torch.no_grad():
-        loss = 0
-        criterion_bce = torch.nn.BCEWithLogitsLoss()
-        for batch in test_loader:
-            image, mask = batch[0].cuda(), batch[1].cuda()
-            result = model(image)
-            result = result.squeeze(1)
-            loss_bce = criterion_bce(result, mask)
-            loss += loss_bce.item() * image.size(0)
-        epoch_loss = loss / len(val_loader)
-        print("--------------------")
-        print(epoch_loss)
 
-"""
 def implement_mask(mask, image):
     mask_3d = mask.repeat(3, 1, 1)
     return mask_3d * image
@@ -281,24 +307,4 @@ def median_filter(image):
 
 
 if __name__=='__main__':
-    model = UNet11()
-    model.load_state_dict(torch.load(os.path.normpath(r'C:\Users\psiml\PycharmProjects\\ternaus.pth')))
-    loaders = {"train": train_loader, "val": val_loader}
-
-    fig, axs = plt.subplots(2, 2, figsize=(15, 15))
-    axs = axs.ravel()
-    model.eval()
-    j = 0
-    for batch in test_loader:
-        images, mask = batch
-        mask = mask.reshape((BATCH_SIZE,IMAGE_HEIGHT,IMAGE_WIDTH))
-        batch_preds = torch.sigmoid(model(images))
-        batch_preds = batch_preds.detach()
-        for i in range(BATCH_SIZE):
-            axs[3].imshow(batch_preds[i].squeeze(0).numpy(), cmap='gray')
-            axs[0].imshow(images[i].permute(1, 2, 0).numpy())
-            axs[1].imshow(mask[i].numpy(), cmap='gray')
-            axs[2].imshow(implement_mask(batch_preds[i].squeeze(0),images[i]).permute(1, 2, 0))
-            plt.savefig(r'C:\\Users\psiml\PycharmProjects\psiml_body_segmentation\Rezultati\Rezultati 2\\rez'+str(i)+str(j)+'.png')
-        j = j+1
-
+    train_UNet11()
