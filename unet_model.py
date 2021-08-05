@@ -23,11 +23,14 @@ class ConvRelu(nn.Module):
 
 # 1 Dekoder blok, redjacemo takvih nekoliko, u sebi ima konvolucioni sloj i ReLu aktivacionu f-ju kao i enkoder
 class DecoderBlock(nn.Module):
+    
     def __init__(
         self, in_channels: int, middle_channels: int, out_channels: int
     ) -> None:
         super().__init__()
-
+        # blok se sastoji iz ConvRelu sloja koji primeni konvoluciju i smanji dubinu slike na middle_channels
+        # dalje, COnvTranspose2d prosiruje feature map stride puta. dubina ide od middle_channels do out_channels
+        
         self.block = nn.Sequential(
             ConvRelu(in_channels, middle_channels),
             nn.ConvTranspose2d(
@@ -66,9 +69,12 @@ class UNet11(nn.Module):
         self.conv5 = self.encoder[18]
 
         # Centralni sloj gde se spajaju enkoder i dekoder
+        # dubina izlaza iz conv5 je 512 = num_filters * 8 * 2
         self.center = DecoderBlock(
             num_filters * 8 * 2, num_filters * 8 * 2, num_filters * 8
         )
+        # dubina izlaza iz center je num_filters * 8 = 256, ali sa izlaza conv5 dolazi jos blok dubine 512
+        # pa je ulaz dec5 dubine 256 + 512. pogledati semu.
         self.dec5 = DecoderBlock(
             num_filters * (16 + 8), num_filters * 8 * 2, num_filters * 8
         )
@@ -99,7 +105,8 @@ class UNet11(nn.Module):
         conv5 = self.relu(self.conv5(conv5s))
 
         center = self.center(self.pool(conv5))
-
+        # ovde uvezujemo ulaze u dekoder slojeve tako sto koristimo izlaze 
+        # iz prethodnih dekodera i simetricnih konvolucionih slojeva.
         dec5 = self.dec5(torch.cat([center, conv5], 1))
         dec4 = self.dec4(torch.cat([dec5, conv4], 1))
         dec3 = self.dec3(torch.cat([dec4, conv3], 1))
