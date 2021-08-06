@@ -1,4 +1,4 @@
-# Full body segmentation
+# Full Body Segmentation
 
 Goal: to segment persons from an image 
 
