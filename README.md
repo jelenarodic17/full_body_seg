@@ -1,4 +1,4 @@
-# Full Body Segmentation
+# Full Body Segmentation Using Ternaus Net
 
 Goal: to segment persons from an image 
 
