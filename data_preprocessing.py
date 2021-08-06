@@ -340,6 +340,45 @@ def median_filter(image):
     filtered_image = skfil.median(image.numpy(), np.ones((5, 5)))
     return filtered_image
 
+def process_one_image(img_path, save_path):
+
+    # Ucitavanje modela
+    model = UNet11()
+    model.load_state_dict(torch.load(os.path.normpath(r'C:\Users\psiml\PycharmProjects\\ternaus3.pth')))
+    model = model.to(device)
+    model.eval()
+
+    # Ucitavanje zeljene slike i cuvanje originalnih dimenzija
+    img = np.array(Image.open(img_path).convert("RGB"))
+    img_shape = np.shape(img)
+
+    # Priprema slike za transformacije
+    image = np.moveaxis(img,[2,0],[0,1])
+    image = torch.tensor(image/(image.flatten().max()), dtype=torch.float32)
+    image = image.to(device)
+
+    # Pravljenje dummy maske i reshape slike za ulaz u model
+    mask = torch.zeros(1,IMAGE_HEIGHT,IMAGE_WIDTH)
+    image,mask = train_transform(image,mask)
+    image = image.reshape(1,3,IMAGE_HEIGHT,IMAGE_WIDTH)
+
+    # Vrsenje predikcije
+    torch.set_grad_enabled(False)
+    preds = torch.sigmoid(model(image))
+
+    # Interpolacija na pocetnu dimenziju
+    mask_resized = F.interpolate(preds, (img_shape[0], img_shape[1]))
+    mask_resized = mask_resized.reshape(img_shape[0],img_shape[1])
+
+    # Cuvanje rezultata
+    fig, axs = plt.subplots(1,2, figsize=(15, 15))
+    axs = axs.ravel()
+    axs[0].imshow(img)
+    axs[1].imshow(np.array(implement_mask(mask_resized.cpu().squeeze(0), np.moveaxis(img,[2,0],[0,1])).permute(1, 2, 0))/np.max(img))
+    axs[0].set_axis_off()
+    axs[1].set_axis_off()
+    plt.savefig(save_path)
+
 
 
 if __name__=='__main__':
