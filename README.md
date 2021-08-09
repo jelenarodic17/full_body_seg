@@ -20,4 +20,4 @@ Results: shown in folders for network trained on coco dataset, and also on super
 
          IoU loss on test on supervisely: 0.8
          
-         IoU loss on test on coco dataset: 0.5
+         IoU loss on test on coco dataset: 0.55
